@@ -1,0 +1,647 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20width='64'%20height='64'%20rx='14'%20fill='%23000'/%3E%3Ccircle%20cx='32'%20cy='32'%20r='24'%20fill='none'%20stroke='%23fff'%20stroke-width='2.5'/%3E%3Cline%20x1='32'%20y1='8'%20x2='32'%20y2='56'%20stroke='%23fff'%20stroke-opacity='.25'%20stroke-width='1.2'/%3E%3Cellipse%20cx='32'%20cy='32'%20rx='24'%20ry='9'%20fill='none'%20stroke='%23fff'%20stroke-opacity='.55'%20stroke-width='1.6'%20transform='rotate(-28%2032%2032)'/%3E%3Cg%20fill='%23fff'%3E%3Ccircle%20cx='20'%20cy='16'%20r='1.1'/%3E%3Ccircle%20cx='44'%20cy='14'%20r='1.1'/%3E%3Ccircle%20cx='14'%20cy='28'%20r='1.1'/%3E%3Ccircle%20cx='50'%20cy='42'%20r='1.1'/%3E%3Ccircle%20cx='26'%20cy='50'%20r='1.1'/%3E%3Ccircle%20cx='40'%20cy='47'%20r='1.1'/%3E%3C/g%3E%3Ccircle%20cx='32'%20cy='32'%20r='4.5'%20fill='%23fff3c4'/%3E%3Ccircle%20cx='53.3'%20cy='24.1'%20r='3.2'%20fill='%23ff8f68'/%3E%3Ccircle%20cx='10.7'%20cy='39.9'%20r='3'%20fill='%237f9cff'/%3E%3C/svg%3E">
+<title>Orrery Score</title>
+<style>
+:root{--bg:#000;--ink:#fff;--dim:#8a8a8a;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#000;--ink:#fff}}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Georgia,'Times New Roman',serif;padding:20px 16px 40px;animation:in 1.8s ease both}
+@keyframes in{from{opacity:0}to{opacity:1}}
+h1{margin:0;font-weight:normal;font-size:13px;letter-spacing:.45em;text-transform:uppercase;text-align:center}
+.status{text-align:center;color:var(--dim);font-size:13px;min-height:22px;margin:8px 0 0;padding:0 8px}
+.bar{display:flex;flex-wrap:wrap;gap:0 6px;justify-content:center;align-items:center}
+button,select,input{font:inherit;color:var(--ink);background:none;border:0;border-radius:0;padding:0 8px;min-height:44px;cursor:pointer}
+button:hover,select:hover{text-decoration:underline;text-underline-offset:5px}
+button.on{text-decoration:underline;text-underline-offset:5px}
+input[type=datetime-local],input[type=number]{border-bottom:1px solid #333;cursor:text;font:12px ui-monospace,Menlo,Consolas,monospace;padding:0 4px;min-height:36px}
+input[type=number]{width:84px}
+select{appearance:none;-webkit-appearance:none}select option{background:#000}
+input[type=range]{display:block;width:min(92vw,620px);margin:0 auto;padding:0;accent-color:#fff;height:26px}
+.dome{width:min(94vw,76vh);aspect-ratio:1;margin:4px auto}
+.dome.wide{width:min(96vw,1100px);aspect-ratio:16/10}
+@media(max-width:760px){.dome.wide{aspect-ratio:3/4}}
+canvas{display:block;width:100%;height:100%}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:32px;max-width:980px;margin:22px auto 0;align-items:start}
+@media(max-width:760px){.cols{grid-template-columns:1fr}}
+.mono{font:12px ui-monospace,Menlo,Consolas,monospace}
+table{width:100%;border-collapse:collapse}td,th{padding:5px 4px;text-align:right;font-weight:normal}td:first-child,th:first-child{text-align:left}th{color:var(--dim)}
+.dim{color:var(--dim);font-size:12px}
+.orr{width:min(100%,460px);aspect-ratio:1;margin:0 auto}
+.roll{height:100px;max-width:980px;margin:24px auto 0}
+.center{text-align:center}
+#credit{position:fixed;right:6px;bottom:calc(3px + env(safe-area-inset-bottom,0px));font:10px ui-monospace,Menlo,monospace;color:var(--dim);opacity:.5;text-decoration:none}
+</style></head><body>
+<h1>Orrery Score</h1>
+<div class="status" id="status"></div>
+<div class="bar">
+ <button id="play">Play</button><button id="spd"></button><button id="now">Now</button><button id="night">Night</button><button id="view">Look up</button>
+ <input type="datetime-local" id="dt" aria-label="Date and time"><button id="snd">Sound off</button>
+</div>
+<input type="range" id="sc" min="0" max="1440" value="0" aria-label="Next 24 hours">
+<div class="dome"><canvas id="sky"></canvas></div>
+<div class="dim center" id="hint" style="min-height:18px"></div>
+<div class="bar mono">
+ <input type="number" id="lat" step="0.01" min="-90" max="90" aria-label="Latitude"><input type="number" id="lon" step="0.01" min="-180" max="180" aria-label="Longitude">
+ <button id="loc">Use my location</button><span class="dim" id="msg"></span>
+</div>
+<div class="bar mono"><select id="scale" aria-label="Scale"></select><select id="root" aria-label="Root note"></select><span class="dim">Seed <span id="seed"></span></span></div>
+<div class="cols">
+ <div><div id="plan"></div></div>
+ <div>
+  <div class="orr"><canvas id="orr"></canvas></div>
+  <div class="bar mono"><span class="dim">Line to</span><select id="osel" aria-label="Line to"></select><button id="scl">Compressed scale</button></div>
+  <div class="center dim" id="oinfo"></div>
+ </div>
+</div>
+<div class="roll"><canvas id="roll"></canvas></div>
+<p class="dim center">Positions are approximate: planets to a fraction of a degree, the Moon to about half a degree. For planning only.</p>
+<a id="credit" href="https://averybeuth.xyz/" target="_blank" rel="noopener">averybeuth.xyz</a>
+<script>
+'use strict';
+/* ===== constants ===== */
+const D2R=Math.PI/180,DAY=864e5,STEP=6e5,HR=36e5;
+const NAMES=['Sun','Moon','Mercury','Venus','Mars','Jupiter','Saturn','Uranus','Neptune'];
+const SPEEDS=[['Real time',1],['1 minute per second',60],['1 hour per second',3600],['1 day per second',86400],['1 month per second',2592000]];
+const EL={
+ mercury:[.38709927,.00000037,.20563593,.00001906,7.00497902,-.00594749,252.2503235,149472.67411175,77.45779628,.16047689,48.33076593,-.12534081],
+ venus:[.72333566,.0000039,.00677672,-.00004107,3.39467605,-.0007889,181.9790995,58517.81538729,131.60246718,.00268329,76.67984255,-.27769418],
+ earth:[1.00000261,.00000562,.01671123,-.00004392,-.00001531,-.01294668,100.46457166,35999.37244981,102.93768193,.32327364,0,0],
+ mars:[1.52371034,.00001847,.0933941,.00007882,1.84969142,-.00813131,-4.55343205,19140.30268499,-23.94362959,.44441088,49.55953891,-.29257343],
+ jupiter:[5.202887,-.00011607,.04838624,-.00013253,1.30439695,-.00183714,34.39644051,3034.74612775,14.72847983,.21252668,100.47390909,.20469106],
+ saturn:[9.53667594,-.0012506,.05386179,-.00050991,2.48599187,.00193609,49.95424423,1222.49362201,92.59887831,-.41897216,113.66242448,-.28867794],
+ uranus:[19.18916464,-.00196176,.04725744,-.00004397,.77263783,-.00242939,313.23810451,428.48202785,170.9542763,.40805281,74.01692503,.04240589],
+ neptune:[30.06992276,.00026291,.00859048,.00005105,1.77004347,.00035372,-55.12002969,218.45945325,44.96476227,-.32241464,131.78422574,-.00508664]};
+const PL=['mercury','venus','mars','jupiter','saturn','uranus','neptune'];
+const A_RING=[.387,.723,1,1.524,5.203,9.537,19.19,30.07];
+const SCALES={'Major':[0,2,4,5,7,9,11],'Natural minor':[0,2,3,5,7,8,10],'Dorian':[0,2,3,5,7,9,10],'Pentatonic':[0,2,4,7,9],'Whole tone':[0,2,4,6,8,10]};
+const ROOTS=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const STARS='Sirius,6.752,-16.716,-1.46;Canopus,6.399,-52.696,-.74;Arcturus,14.261,19.182,-.05;Vega,18.616,38.784,.03;Capella,5.278,45.998,.08;Rigel,5.242,-8.202,.13;Procyon,7.655,5.225,.34;Betelgeuse,5.919,7.407,.5;Achernar,1.629,-57.237,.46;Hadar,14.064,-60.373,.61;Altair,19.846,8.868,.77;Acrux,12.443,-63.099,.76;Aldebaran,4.599,16.509,.85;Antares,16.49,-26.432,1.06;Spica,13.42,-11.161,.98;Pollux,7.755,28.026,1.14;Fomalhaut,22.961,-29.622,1.16;Deneb,20.69,45.28,1.25;Mimosa,12.795,-59.689,1.25;Regulus,10.14,11.967,1.35;Adhara,6.977,-28.972,1.5;Castor,7.577,31.888,1.58;Gacrux,12.519,-57.113,1.64;Shaula,17.56,-37.104,1.63;Bellatrix,5.419,6.35,1.64;Elnath,5.438,28.608,1.65;Miaplacidus,9.22,-69.717,1.67;Alnilam,5.603,-1.202,1.69;Alnair,22.137,-46.961,1.74;Alnitak,5.679,-1.943,1.77;Alioth,12.9,55.96,1.76;Dubhe,11.062,61.751,1.79;Mirfak,3.405,49.861,1.79;Wezen,7.14,-26.393,1.83;Sargas,17.622,-42.998,1.87;Kaus Australis,18.403,-34.385,1.85;Avior,8.375,-59.51,1.86;Alkaid,13.792,49.313,1.85;Menkalinan,5.992,44.947,1.9;Atria,16.811,-69.028,1.92;Polaris,2.53,89.264,1.98;Mizar,13.399,54.925,2.23;Saiph,5.796,-9.67,2.06;Hamal,2.12,23.463,2;Diphda,.726,-17.987,2.04;Alpheratz,.139,29.091,2.06;Mirach,1.163,35.621,2.05;Merak,11.031,56.382,2.37;Phecda,11.897,53.695,2.44;Megrez,12.257,57.033,3.31;Mintaka,5.533,-.299,2.23;Schedar,.675,56.537,2.24;Caph,.153,59.15,2.28;Navi,.945,60.717,2.47;Ruchbah,1.43,60.235,2.68;Segin,1.907,63.67,3.37;Imai,12.252,-58.749,2.8;Alphard,9.4598,-8.6586,1.98;Alphecca,15.578,26.715,2.23;Denebola,11.8177,14.572,2.14;Algieba,10.3329,19.8415,2.28;Algol,3.1361,40.9556,2.12;Almach,2.065,42.33,2.26;Gienah Crv,12.263,-17.542,2.59;Kochab,14.845,74.156,2.08;Dschubba,16.0056,-22.6217,2.29;Sabik,17.173,-15.725,2.43;Rasalhague,17.5822,12.56,2.07;Eltanin,17.9434,51.4889,2.23;Nunki,18.9211,-26.2967,2.05;Sadr,20.3705,40.2567,2.23;Gienah Cyg,20.7702,33.9703,2.46;Enif,21.7364,9.875,2.38;Scheat,23.0629,28.0828,2.42;Markab,23.0793,15.2053,2.49;Algenib,.2206,15.1836,2.83;Menkar,3.038,4.0897,2.53;Zubeneschamali,15.2835,-9.3829,2.61;Zubenelgenubi,14.8478,-16.0418,2.75;Unukalhai,15.7378,6.4256,2.65;Arneb,5.5455,-17.8223,2.58;Nihal,5.4707,-20.7594,2.84;Mirzam,6.3783,-17.9559,1.98;Alhena,6.6285,16.3993,1.93;Mebsuta,6.7322,25.1311,2.98;Tejat,6.3827,22.5136,2.88;Aludra,7.4016,-29.3031,2.45;Naos,8.0597,-40.0033,2.25;Suhail,9.1333,-43.4326,2.23;Alsephina,8.7452,-54.7088,1.96;Regor,8.1588,-47.3366,1.78;Aspidiske,9.2848,-59.2752,2.21;Markeb,9.3686,-55.0107,2.5;Peacock,20.4275,-56.735,1.94;Ankaa,.4381,-42.3061,2.39;Acamar,2.971,-40.3047,2.97;Menkent,14.1114,-36.37,2.06;Rigil Kentaurus,14.66,-60.834,-.01;Epsilon Centauri,13.6648,-53.4664,2.3;Eta Centauri,14.5918,-42.1578,2.31;Zeta Centauri,13.9254,-47.2884,2.55;Muhlifain,12.6914,-48.9599,2.17;Delta Centauri,12.1394,-50.7224,2.6;Alpha Lupi,14.6988,-47.388,2.3;Beta Lupi,14.9755,-43.1339,2.68;Beta Trianguli Australis,15.919,-63.4307,2.83;Gamma Trianguli Australis,15.315,-68.6795,2.89;Alpha Tucanae,22.3084,-60.2596,2.86;Alpha Hydri,1.9791,-61.5699,2.86;Beta Hydri,.4291,-77.2542,2.8;Alpha Arae,17.5307,-49.8761,2.95;Beta Arae,17.4219,-55.53,2.85;Han,16.6192,-10.5671,2.56;Delta Ophiuchi,16.2391,-3.6943,2.74;Cebalrai,17.7245,4.5673,2.77;Rastaban,17.5072,52.3014,2.79;Eta Draconis,16.3999,61.514,2.74;Pherkad,15.3455,71.834,3.05;Zeta Persei,3.902,31.8836,2.84;Epsilon Persei,3.9642,40.0102,2.89;Zeta Tauri,5.6274,21.1426,3;Alcyone,3.7914,24.1051,2.87;Epsilon Aurigae,5.0328,43.8233,2.99;Gomeisa,7.4525,8.2893,2.89;Algenubi,9.764,23.7743,2.98;Minkar,12.1685,-22.6198,3;Algorab,12.4977,-16.5155,2.95;Seginus,14.5348,38.3083,3.03;Izar,14.7498,27.0742,2.7;Muphrid,13.9115,18.3977,2.68;Vindemiatrix,13.0364,10.9592,2.83;Porrima,12.6944,-1.4494,2.74;Zosma,11.2351,20.5237,2.56;Cor Caroli,12.9338,38.3184,2.89;Ras Algethi,17.2441,14.3903,3;Kornephoros,16.5037,21.4896,2.77;Zeta Herculis,16.6881,31.6027,2.81;Graffias,16.0906,-19.8054,2.62;Tau Scorpii,16.5983,-28.216,2.82;Larawag,16.836,-34.2932,2.29;Girtab,17.708,-39.0299,2.41;Lesath,17.5126,-37.2958,2.69;Kaus Media,18.3499,-29.8281,2.7;Kaus Borealis,18.4662,-25.4217,2.81;Alnasl,18.0966,-30.4241,2.99;Ascella,19.0435,-29.8801,2.6;Pi Sagittarii,19.1626,-21.0235,2.89;Tarazed,19.771,10.6133,2.72;Albireo,19.512,27.9597,3.18;Fawaris,19.7496,45.1308,2.87;Sheratan,1.9109,20.808,2.64;Matar,22.7167,30.2212,2.94;Deneb Algedi,21.784,-16.1273,2.87;Sadalsuud,21.526,-5.5712,2.91;Sadalmelik,22.0964,-.3199,2.96;Beta Gruis,22.7109,-46.8846,2.1;Alderamin,21.3096,62.5856,2.45;Cursa,5.1306,-5.0864,2.79;Zaurak,3.9677,-13.5085,2.95;Phact,5.6608,-34.0741,2.64;Alpha Muscae,12.6204,-69.1356,2.69;Atlas,3.8192,24.0534,3.62;Electra,3.7479,24.1134,3.7;Maia,3.7634,24.3678,3.87;Merope,3.7722,23.9484,4.18;Taygeta,3.7535,24.4673,4.29;Pleione,3.8196,24.1367,5.05;Tania Australis,10.3722,41.4995,3.05;Tania Borealis,10.2851,42.9144,3.45;Talitha,8.9868,48.0418,3.14;Muscida,8.5043,60.7182,3.36;Alula Australis,11.3032,31.5291,3.79;Alula Borealis,11.3077,33.0943,3.48;Kappa UMa,9.0603,47.1565,3.6;Theta UMa,9.547,51.6773,3.17;Upsilon UMa,9.849,59.0388,3.8;Psi UMa,11.1613,44.4986,3.01;Alcor,13.4204,54.988,3.99;Yildun,17.5369,86.5865,4.35;Epsilon UMi,16.7662,82.0373,4.21;Zeta UMi,15.7343,77.7945,4.32;Eta UMi,16.2918,75.7553,4.95;Alfirk,21.4776,70.5607,3.23;Errai,23.6558,77.6323,3.21;Zeta Cep,22.1809,58.2013,3.35;Iota Cep,22.4964,66.2004,3.52;Thuban,14.0732,64.3758,3.65;Altais,19.2093,67.6616,3.07;Edasich,15.4155,59.0388,3.29;Aldhibah,17.1463,65.7147,3.17;Grumium,17.8921,56.8726,3.75;Kappa Dra,12.5581,69.7882,3.87;Sheliak,18.8347,33.3627,3.52;Sulafat,18.9824,32.6896,3.25;Delta2 Lyr,18.9078,36.8986,4.3;Rotanev,20.6256,14.5951,3.63;Sualocin,20.6606,15.9121,3.77;Gamma Del,20.777,16.1244,4.27;Delta Del,20.7243,15.0746,4.43;Gamma Sge,19.9793,19.4921,3.47;Delta Sge,19.789,18.5343,3.82;Nusakan,15.4636,29.1057,3.68;Theta CrB,15.5493,31.3592,4.14;Gamma CrB,15.7126,26.2957,3.84;Delta CrB,15.8262,26.0678,4.63;Epsilon CrB,15.9594,26.8779,4.15;Pi Her,17.2505,36.8092,3.16;Eta Her,16.7149,38.9222,3.53;Epsilon Her,17.005,30.9264,3.92;Sarin,17.2509,24.8392,3.14;Nekkar,15.0324,40.3906,3.5;Delta Boo,15.2584,33.3147,3.47;Rho Boo,14.5311,30.3714,3.58;Wasat,7.3353,21.9823,3.53;Mekbuda,7.0685,20.5703,3.79;Propus,6.2483,22.5068,3.28;Alzirr,6.7548,12.8956,3.35;Acubens,8.9745,11.8577,4.25;Tarf,8.2752,9.1856,3.52;Asellus Australis,8.7447,18.1543,3.94;Asellus Borealis,8.7217,21.4686,4.66;Chertan,11.2373,15.4296,3.34;Adhafera,10.2782,23.4173,3.44;Rasalas,9.8794,26.007,3.88;Eta Leo,10.122,16.7627,3.52;Iota Leo,11.3987,10.5295,3.94;Subra,9.685,9.8923,3.52;Zavijava,11.8449,1.7647,3.61;Zaniah,12.3318,-.6668,3.89;Heze,13.5782,-.5958,3.37;Auva,12.9267,3.3975,3.38;Syrma,14.2666,-6.0006,4.08;Sigma Lib,15.0678,-25.2819,3.29;Zubenelakrab,15.5921,-14.7893,3.91;Mu1 Scorpii,16.8644,-38.0475,3;Eta Scorpii,17.2022,-43.2391,3.33;Iota1 Scorpii,17.7933,-40.127,3.03;Pi Scorpii,15.9808,-26.1141,2.89;Rho Scorpii,15.9561,-29.2141,3.88;Alniyat,16.3531,-25.5928,2.89;Zeta Scorpii,16.9097,-42.3618,3.62;Phi Sgr,18.7608,-26.9908,3.17;Tau Sgr,19.1156,-27.6704,3.32;Eta Sgr,18.2943,-36.7617,3.11;Polis,18.229,-21.0587,3.86;Xi2 Sgr,18.97,-21.1066,3.51;Algedi,20.3009,-12.5448,3.57;Dabih,20.35,-14.7814,3.08;Nashira,21.6683,-16.6623,3.68;Psi Cap,20.7939,-25.2709,4.14;Omega Cap,20.4649,-26.919,4.11;Zeta Cap,21.4437,-22.4113,3.74;Skat,22.9108,-15.8208,3.27;Albali,20.7945,-9.4958,3.77;Lambda Aqr,22.8767,-7.5797,3.74;Alrescha,2.034,2.7638,3.82;Eta Psc,1.5247,15.3458,3.62;Gamma Psc,23.2866,3.2824,3.69;Mesarthim,1.9003,19.2939,3.88;41 Ari,2.8333,27.2605,3.63;Ain,4.4767,19.1804,3.53;Theta2 Tau,4.4776,15.8709,3.4;Gamma Tau,4.3299,15.6276,3.65;Delta1 Tau,4.382,17.5428,3.77;Lambda Tau,4.0113,12.4903,3.41;Meissa,5.5856,9.9342,3.54;Hatysa,5.5906,-5.91,2.75;Tabit,4.8308,6.9613,3.19;Pi2 Ori,4.8497,8.9003,4.36;Eta Ori,5.4072,-2.3972,3.35;Beid,4.6045,-7.6527,4.04;Ran,3.5486,-9.4581,3.73;Azha,2.9403,-8.8978,3.89;Delta Eridani,3.7203,-9.7633,3.54;Mu Lep,5.2158,-16.2056,3.31;Epsilon Lep,5.091,-22.371,3.19;Gamma Lep,5.7406,-22.4484,3.6;Zeta Lep,5.7849,-14.8219,3.55;Delta Lep,5.8551,-20.8791,3.81;Furud,6.3379,-30.0634,3.02;Muliphein,7.0626,-15.6333,4.12;Theta CMa,6.9358,-12.0386,4.07;Tureis,8.1255,-24.3043,2.81;Azmidiske,7.8221,-24.8598,3.34;Pi Pup,7.2856,-37.0976,2.7;Tau Pup,6.8325,-50.6145,2.93;Sigma Pup,7.4875,-43.3014,3.25;Nu Pup,6.6299,-43.1959,3.17;Mu Vel,10.7795,-49.4203,2.69;Phi Vel,9.9488,-54.5678,3.52;Chi Car,7.9471,-52.9824,3.46;Theta Car,10.716,-64.3945,2.76;Upsilon Car,9.7847,-65.072,2.97;Omega Car,10.2285,-70.038,3.29;Iota Cen,13.3434,-36.7123,2.75;Mu Cen,13.8226,-42.4737,3.43;Kappa Cen,14.9859,-42.1042,3.13;Gamma Lup,15.5856,-41.1667,2.78;Delta Lup,15.3562,-40.6475,3.22;Epsilon Lup,15.3787,-44.6896,3.37;Zeta Lup,15.2047,-52.0992,3.41;Eta Lup,16.001,-38.3967,3.41;Gamma Ara,17.4233,-56.3777,3.34;Zeta Ara,16.9772,-55.99,3.13;Delta Ara,17.5168,-60.6838,3.62;Delta Pav,20.1451,-66.1821,3.55;Beta Pav,20.7491,-66.2032,3.42;Alpha Ind,20.626,-47.2915,3.11;Beta Ind,20.9132,-58.454,3.65;Aldhanab,21.8984,-37.3649,3;Delta1 Gruis,22.4879,-43.4954,3.97;Beta Phe,1.1005,-46.7184,3.31;Gamma Phe,1.4727,-43.3183,3.41;Zeta Phe,1.1396,-55.2459,3.92;Kaffaljidhma,2.7216,3.2359,3.47;Baten Kaitos,1.8575,-10.335,3.73;Mira,2.3224,-2.9776,3.04;Tau Cet,1.7344,-15.9375,3.5;Eta Cet,1.1433,-10.1823,3.45;Iota Cet,.3234,-8.8239,3.56;Gamma Hya,13.3151,-23.1717,3;Zeta Hya,8.923,5.9456,3.11;Nu Hya,10.8271,-16.1936,3.11;Pi Hya,14.1058,-26.6824,3.27;Epsilon Hya,8.7798,6.4189,3.38;Lambda Hya,10.176,-12.3541,3.61;Mu Hya,10.4344,-16.8363,3.81;Delta Crt,11.3224,-14.7786,3.56;Gamma Crt,11.415,-17.6841,4.08;Alkes,10.9961,-18.2988,4.08;Kraz,12.5732,-23.3968,2.65;Wazn,5.8496,-35.7683,3.12;Delta Col,6.3677,-33.4363,3.85;Eta Col,6.8316,-42.8151,3.96;Alpha Dor,4.5667,-55.045,3.27;Beta Dor,5.5603,-62.4898,3.76;Alpha Pic,6.804,-61.9414,3.27;Beta Pic,5.7869,-51.0667,3.86;Alpha Ret,4.24,-62.4739,3.35;Beta Ret,3.7367,-64.8069,3.85;Gamma Hydri,3.787,-74.239,3.24;Beta Mus,12.7706,-68.1081,3.05;Delta Mus,13.0376,-71.5489,3.62;Gamma Mus,12.5412,-72.133,3.87;Gamma Vol,7.1451,-70.4989,3.62;Beta Vol,8.4283,-66.1369,3.77;Zeta Vol,8.1308,-68.6172,3.95;Alpha Pyx,8.7268,-33.1864,3.68;Alpha CrA,19.1587,-37.9045,4.11;Beta CrA,19.167,-39.3406,4.11;Gamma CrA,19.0658,-37.0629,4.21;Delta CrA,19.1294,-40.4959,4.6;Theta Oph,17.3665,-24.9995,3.27;Kappa Oph,16.9614,9.375,3.2;Marfik,16.5148,1.9839,3.82;Epsilon Oph,16.3053,-4.6925,3.24;Gamma Oph,17.7977,2.7073,3.75;Nu Oph,17.9835,-9.7737,3.34;Beta Ser,15.7699,15.4219,3.67;Gamma Ser,15.9396,15.6616,3.85;Kappa Ser,15.7648,18.1417,4.09;Alavi,18.3555,-2.8988,3.26;Alya,18.937,4.2037,4.62;Xi Ser,17.6264,-15.399,3.54;Mu Ser,15.8271,-3.43,3.53;Alshain,19.9219,6.4068,3.71;Delta Aql,19.4249,3.1148,3.36;Zeta Aql,19.0903,13.8635,2.99;Lambda Aql,19.104,-4.8826,3.44;Theta Aql,20.1884,-.8215,3.23;Eta Cyg,19.9376,35.0834,3.89;Iota Cyg,19.4944,51.7297,3.79;Kappa Cyg,19.2851,53.3684,3.77;Zeta Cyg,21.2156,30.2269,3.2;Tau Cyg,21.2074,38.045,3.72;Homam,22.691,10.8314,3.4;Baham,22.1698,6.1979,3.53;Sadalbari,22.8334,24.6016,3.48;Lambda Peg,22.7753,23.5657,3.95;Iota Peg,22.1161,25.345,3.76;Kappa Peg,21.7356,25.6451,4.13;Delta And,.6555,30.861,3.27;Mu And,.9457,38.4993,3.87;Beta Trianguli,2.159,34.9873,3;Mothallah,1.8841,29.5788,3.41;Gamma Trianguli,2.2891,33.8472,4.01;Delta Per,3.715,47.7876,3.01;Gamma Per,3.0798,53.5064,2.93;Eta Per,2.8445,55.8955,3.76;Xi Per,3.9024,35.791,4.04;Atik,3.7478,32.2882,3.83;Rho Per,3.0864,38.8403,3.39;Kappa Per,3.1587,44.8575,3.8;Hassaleh,4.9498,33.1661,2.69;Theta Aur,5.9954,37.2125,2.62;Eta Aur,5.1085,41.2344,3.17;Zeta Aur,5.0412,41.0758,3.75;Alpha Lyn,9.3511,34.3926,3.13;38 Lyn,9.314,36.8026,3.82;Alpha Lac,22.5213,50.2824,3.77;Chara,12.5622,41.3575,4.26;Achird,.8187,57.8153,3.44;Lambda Boo,14.2495,46.0883,4.18;Asellus Primus,14.4204,51.8507,4.05'
+ .split(';').map((s,k)=>{const a=s.split(',');return{n:a[0],ra:+a[1]*15,dec:+a[2],mag:+a[3],ph:k*1.7}});
+const CONS=[
+['Ursa Major','Dubhe-Merak,Merak-Phecda,Phecda-Megrez,Megrez-Alioth,Alioth-Mizar,Mizar-Alkaid,Megrez-Dubhe,Mizar-Alcor,Dubhe-Upsilon UMa,Upsilon UMa-Muscida,Upsilon UMa-Theta UMa,Theta UMa-Talitha,Talitha-Kappa UMa,Kappa UMa-Tania Borealis,Tania Borealis-Tania Australis,Merak-Psi UMa,Psi UMa-Alula Borealis,Alula Borealis-Alula Australis'],
+['Orion','Betelgeuse-Bellatrix,Betelgeuse-Alnitak,Bellatrix-Mintaka,Alnitak-Alnilam,Alnilam-Mintaka,Alnitak-Saiph,Mintaka-Rigel,Saiph-Rigel,Betelgeuse-Meissa,Meissa-Bellatrix,Bellatrix-Tabit,Tabit-Pi2 Ori,Alnilam-Hatysa'],
+['Cassiopeia','Caph-Schedar,Schedar-Navi,Navi-Ruchbah,Ruchbah-Segin'],
+['Crux','Acrux-Gacrux,Mimosa-Imai'],
+['Leo','Regulus-Eta Leo,Eta Leo-Algieba,Algieba-Adhafera,Adhafera-Rasalas,Rasalas-Algenubi,Algieba-Zosma,Zosma-Denebola,Zosma-Chertan,Chertan-Denebola,Chertan-Regulus,Chertan-Iota Leo'],
+['Scorpius','Graffias-Dschubba,Dschubba-Pi Scorpii,Pi Scorpii-Rho Scorpii,Dschubba-Alniyat,Alniyat-Antares,Antares-Tau Scorpii,Tau Scorpii-Larawag,Larawag-Mu1 Scorpii,Mu1 Scorpii-Zeta Scorpii,Zeta Scorpii-Eta Scorpii,Eta Scorpii-Sargas,Sargas-Iota1 Scorpii,Iota1 Scorpii-Girtab,Girtab-Shaula,Shaula-Lesath'],
+['Cygnus','Deneb-Sadr,Sadr-Albireo,Fawaris-Sadr,Sadr-Gienah Cyg,Sadr-Eta Cyg'],
+['Bootes','Arcturus-Muphrid,Arcturus-Izar,Izar-Delta Boo,Delta Boo-Nekkar,Nekkar-Seginus,Seginus-Rho Boo,Rho Boo-Arcturus,Nekkar-Lambda Boo'],
+['Pegasus','Markab-Scheat,Scheat-Alpheratz,Alpheratz-Algenib,Algenib-Markab,Markab-Homam,Homam-Baham,Baham-Enif,Scheat-Matar,Scheat-Sadalbari,Sadalbari-Lambda Peg'],
+['Andromeda','Alpheratz-Delta And,Delta And-Mirach,Mirach-Mu And,Mirach-Almach'],
+['Canis Major','Sirius-Mirzam,Sirius-Wezen,Wezen-Adhara,Wezen-Aludra,Mirzam-Furud,Furud-Adhara,Muliphein-Sirius'],
+['Sagittarius','Kaus Australis-Kaus Media,Kaus Media-Kaus Borealis,Kaus Borealis-Phi Sgr,Phi Sgr-Nunki,Nunki-Tau Sgr,Tau Sgr-Ascella,Ascella-Kaus Australis,Kaus Media-Alnasl,Alnasl-Kaus Australis'],
+['Virgo','Zavijava-Zaniah,Zaniah-Porrima,Porrima-Auva,Auva-Vindemiatrix,Porrima-Heze,Heze-Spica'],
+['Auriga','Capella-Menkalinan,Menkalinan-Theta Aur,Theta Aur-Elnath,Elnath-Hassaleh,Hassaleh-Capella,Epsilon Aurigae-Zeta Aur,Zeta Aur-Eta Aur,Eta Aur-Epsilon Aurigae'],
+['Perseus','Gamma Per-Mirfak,Mirfak-Delta Per,Delta Per-Epsilon Persei,Epsilon Persei-Zeta Persei,Zeta Persei-Xi Per,Mirfak-Algol,Algol-Rho Per,Eta Per-Gamma Per'],
+['Centaurus','Rigil Kentaurus-Hadar,Hadar-Epsilon Centauri,Epsilon Centauri-Zeta Centauri,Zeta Centauri-Menkent,Muhlifain-Delta Centauri,Menkent-Iota Cen'],
+['Aquila','Tarazed-Altair,Altair-Alshain,Altair-Delta Aql,Delta Aql-Lambda Aql,Delta Aql-Theta Aql,Delta Aql-Zeta Aql,Zeta Aql-Tarazed'],
+['Draco','Eltanin-Rastaban,Eltanin-Grumium,Grumium-Rastaban,Eltanin-Eta Draconis,Eta Draconis-Aldhibah,Aldhibah-Altais,Eta Draconis-Edasich,Edasich-Thuban,Thuban-Kappa Dra'],
+['Taurus','Aldebaran-Elnath,Aldebaran-Zeta Tauri,Aldebaran-Theta2 Tau,Theta2 Tau-Gamma Tau,Gamma Tau-Delta1 Tau,Delta1 Tau-Ain,Gamma Tau-Lambda Tau'],
+['Pleiades','Alcyone-Atlas,Alcyone-Electra,Alcyone-Merope,Electra-Maia,Maia-Taygeta'],
+['Gemini','Castor-Pollux,Castor-Mebsuta,Mebsuta-Tejat,Tejat-Propus,Mebsuta-Mekbuda,Mekbuda-Alhena,Pollux-Wasat,Wasat-Alzirr,Wasat-Mekbuda'],
+['Canis Minor','Procyon-Gomeisa'],
+['Ursa Minor','Polaris-Yildun,Yildun-Epsilon UMi,Epsilon UMi-Zeta UMi,Zeta UMi-Eta UMi,Eta UMi-Pherkad,Pherkad-Kochab,Kochab-Zeta UMi'],
+['Hercules','Zeta Herculis-Eta Her,Eta Her-Pi Her,Pi Her-Epsilon Her,Epsilon Her-Zeta Herculis,Epsilon Her-Sarin,Sarin-Ras Algethi,Zeta Herculis-Kornephoros,Kornephoros-Ras Algethi'],
+['Ophiuchus','Rasalhague-Cebalrai,Cebalrai-Kappa Oph,Kappa Oph-Marfik,Marfik-Delta Ophiuchi,Delta Ophiuchi-Epsilon Oph,Epsilon Oph-Han,Han-Sabik,Sabik-Theta Oph,Cebalrai-Gamma Oph,Gamma Oph-Nu Oph,Nu Oph-Sabik'],
+['Libra','Zubenelgenubi-Zubeneschamali,Zubeneschamali-Zubenelakrab,Zubenelakrab-Sigma Lib,Sigma Lib-Zubenelgenubi'],
+['Corvus','Gienah Crv-Algorab,Algorab-Kraz,Kraz-Minkar,Minkar-Gienah Crv'],
+['False Cross','Aspidiske-Avior,Avior-Alsephina,Alsephina-Markeb,Markeb-Aspidiske'],
+['Lupus','Alpha Lupi-Beta Lupi,Beta Lupi-Delta Lup,Delta Lup-Gamma Lup,Gamma Lup-Eta Lup,Delta Lup-Epsilon Lup,Epsilon Lup-Zeta Lup,Zeta Lup-Alpha Lupi'],
+['Triangulum Australe','Atria-Beta Trianguli Australis,Beta Trianguli Australis-Gamma Trianguli Australis,Gamma Trianguli Australis-Atria'],
+['Ara','Alpha Arae-Beta Arae,Beta Arae-Gamma Ara,Gamma Ara-Delta Ara,Beta Arae-Zeta Ara'],
+['Grus','Aldhanab-Alnair,Alnair-Beta Gruis,Beta Gruis-Delta1 Gruis'],
+['Aquarius','Sadalsuud-Sadalmelik,Sadalsuud-Albali,Sadalmelik-Lambda Aqr,Lambda Aqr-Skat'],
+['Aries','41 Ari-Hamal,Hamal-Sheratan,Sheratan-Mesarthim'],
+['Cetus','Menkar-Kaffaljidhma,Kaffaljidhma-Mira,Mira-Baten Kaitos,Baten Kaitos-Eta Cet,Eta Cet-Iota Cet,Iota Cet-Diphda,Baten Kaitos-Tau Cet,Tau Cet-Diphda'],
+['Eridanus','Cursa-Beid,Beid-Zaurak,Zaurak-Delta Eridani,Delta Eridani-Ran,Ran-Azha,Azha-Acamar,Acamar-Achernar'],
+['Lepus','Arneb-Nihal,Arneb-Mu Lep,Arneb-Zeta Lep,Zeta Lep-Gamma Lep,Gamma Lep-Delta Lep,Delta Lep-Nihal,Mu Lep-Epsilon Lep'],
+['Hydrus','Alpha Hydri-Beta Hydri,Alpha Hydri-Gamma Hydri'],
+['Cancer','Tarf-Asellus Australis,Asellus Australis-Acubens,Asellus Australis-Asellus Borealis'],
+['Cepheus','Alderamin-Alfirk,Alfirk-Errai,Errai-Iota Cep,Iota Cep-Alderamin,Alderamin-Zeta Cep,Zeta Cep-Iota Cep'],
+['Lyra','Vega-Delta2 Lyr,Delta2 Lyr-Sheliak,Sheliak-Sulafat,Sulafat-Delta2 Lyr'],
+['Delphinus','Sualocin-Rotanev,Rotanev-Delta Del,Delta Del-Gamma Del,Gamma Del-Sualocin'],
+['Sagitta','Gamma Sge-Delta Sge'],
+['Corona Borealis','Theta CrB-Nusakan,Nusakan-Alphecca,Alphecca-Gamma CrB,Gamma CrB-Delta CrB,Delta CrB-Epsilon CrB'],
+['Capricornus','Algedi-Dabih,Dabih-Psi Cap,Psi Cap-Omega Cap,Omega Cap-Zeta Cap,Zeta Cap-Deneb Algedi,Deneb Algedi-Nashira,Nashira-Zeta Cap'],
+['Pisces','Alrescha-Eta Psc,Alrescha-Gamma Psc'],
+['Triangulum','Beta Trianguli-Gamma Trianguli,Gamma Trianguli-Mothallah,Mothallah-Beta Trianguli'],
+['Lynx','Alpha Lyn-38 Lyn'],
+['Canes Venatici','Cor Caroli-Chara'],
+['Puppis','Naos-Pi Pup,Pi Pup-Nu Pup,Nu Pup-Tau Pup,Tau Pup-Sigma Pup,Sigma Pup-Naos,Naos-Tureis,Tureis-Azmidiske'],
+['Carina','Canopus-Chi Car,Chi Car-Avior,Aspidiske-Upsilon Car,Upsilon Car-Miaplacidus,Miaplacidus-Theta Car,Theta Car-Omega Car'],
+['Pavo','Peacock-Delta Pav,Delta Pav-Beta Pav,Beta Pav-Peacock'],
+['Indus','Alpha Ind-Beta Ind'],
+['Phoenix','Ankaa-Beta Phe,Beta Phe-Gamma Phe,Gamma Phe-Ankaa,Beta Phe-Zeta Phe'],
+['Crater','Alkes-Gamma Crt,Gamma Crt-Delta Crt,Delta Crt-Alkes'],
+['Hydra','Epsilon Hya-Zeta Hya,Zeta Hya-Alphard,Alphard-Lambda Hya,Lambda Hya-Mu Hya,Mu Hya-Nu Hya,Nu Hya-Gamma Hya,Gamma Hya-Pi Hya'],
+['Columba','Phact-Wazn,Wazn-Delta Col,Delta Col-Eta Col'],
+['Dorado','Alpha Dor-Beta Dor'],
+['Pictor','Alpha Pic-Beta Pic'],
+['Reticulum','Alpha Ret-Beta Ret'],
+['Musca','Alpha Muscae-Beta Mus,Beta Mus-Delta Mus,Delta Mus-Gamma Mus,Gamma Mus-Alpha Muscae'],
+['Volans','Beta Vol-Zeta Vol,Zeta Vol-Gamma Vol'],
+['Corona Australis','Gamma CrA-Alpha CrA,Alpha CrA-Beta CrA,Beta CrA-Delta CrA'],
+['Serpens','Kappa Ser-Beta Ser,Beta Ser-Gamma Ser,Gamma Ser-Unukalhai,Unukalhai-Mu Ser,Alya-Alavi,Alavi-Xi Ser']
+].map(([n,l])=>({n,lines:l.split(',').map(t=>t.split('-').map(x=>STARS.find(y=>y.n===x)))}));
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ===== math ===== */
+const $=id=>document.getElementById(id);
+const norm=a=>((a%360)+360)%360;
+const sin=a=>Math.sin(a*D2R),cos=a=>Math.cos(a*D2R);
+const jd=t=>t/DAY+2440587.5;
+function hashStr(s){let h=2166136261;for(const c of s){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
+function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+
+/* ===== colours, faint stars, Milky Way, deep sky objects (faint stars and Milky Way are generated, not catalog data) ===== */
+const COL=['#fff3c4','#f1ead8','#c8c4bc','#fff1c8','#ff8f68','#f0d0a0','#e8d28a','#9fe0e6','#7f9cff'];
+const STARCOL={Betelgeuse:'#ff9a6a',Antares:'#ff8a5c',Aldebaran:'#ffb27a',Arcturus:'#ffb878',Pollux:'#ffd0a0',Capella:'#fff0c0',Sirius:'#cfe0ff',Rigel:'#bcd0ff',Vega:'#d8e4ff',Spica:'#b8ccff',Regulus:'#c8d8ff',Deneb:'#e8eeff',Altair:'#eef2ff',Procyon:'#fff4e0',Canopus:'#fff8e8',Achernar:'#b8ccff',Fomalhaut:'#e0e8ff',Bellatrix:'#b8ccff',Elnath:'#c0d0ff',Alnilam:'#b0c4ff',Alnitak:'#b0c4ff',Mintaka:'#b0c4ff',Mimosa:'#b0c4ff',Acrux:'#b4c8ff',Hadar:'#b0c4ff',Shaula:'#b4c8ff',Gacrux:'#ff9f70',Mirach:'#ff9f70',Schedar:'#ffb080',Dubhe:'#ffc090',Kochab:'#ffb27a','Rigil Kentaurus':'#fff2c8',Menkent:'#ffc890',Sadr:'#fff0d0',Albireo:'#ffc080',Alphard:'#ffa878',Hamal:'#ffc090',Saiph:'#b8ccff','Kaus Australis':'#cfdcff',Nunki:'#b8ccff',Alioth:'#e8eeff',Mizar:'#e8eeff',Alkaid:'#b8ccff',Castor:'#e8eeff',Diphda:'#ffd0a0',Alnair:'#b8ccff',Atria:'#ffb080',Peacock:'#b8ccff',Miaplacidus:'#e8eeff',Avior:'#ffc890',Wezen:'#fff0d0',Adhara:'#b8ccff',Mirzam:'#b0c4ff',Alhena:'#e8eeff',Girtab:'#b4c8ff',Sargas:'#fff0d0',Unukalhai:'#ffc890',Zubeneschamali:'#c8d8ff',Kornephoros:'#fff0c0',Enif:'#ffb878',Scheat:'#ff9f70',Markab:'#e0e8ff','Cor Caroli':'#e8eeff',Alphecca:'#e8eeff',Rasalhague:'#e8eeff',Eltanin:'#ffc090',Alcyone:'#b8ccff',Atlas:'#b8ccff',Electra:'#b8ccff',Maia:'#b8ccff',Merope:'#b8ccff',Taygeta:'#b8ccff',Pleione:'#b8ccff'};
+const starColor=s=>STARCOL[s.n]||'#f4f6ff';
+const galToEq=(l,b)=>{
+ const aG=192.85948,dG=27.12825,dl=122.93192-l;
+ const dec=Math.asin(sin(b)*sin(dG)+cos(b)*cos(dG)*cos(dl))/D2R;
+ const ra=norm(aG+Math.atan2(cos(b)*sin(dl),sin(b)*cos(dG)-cos(b)*sin(dG)*cos(dl))/D2R);
+ return[ra,dec];
+};
+const SC=[[207,220,255],[255,255,255],[255,241,214],[255,201,154],[255,158,122]],GT=[[255,226,170],[205,218,255]];
+const FS=(()=>{
+ const r=mulberry(20261116),gs=()=>Math.sqrt(-2*Math.log(r()+1e-9))*Math.cos(6.2831853*r());
+ const mk=n=>({x:new Float32Array(n),y:new Float32Array(n),z:new Float32Array(n),a:new Uint8Array(n),c:new Uint8Array(n),n:0});
+ const stars=mk(90000),grain=mk(120000);
+ const put=(o,l,b,a,c)=>{const eq=galToEq(l,b),cd=cos(eq[1]),i=o.n++;o.x[i]=cd*cos(eq[0]);o.y[i]=cd*sin(eq[0]);o.z[i]=sin(eq[1]);o.a[i]=a;o.c[i]=c};
+ while(stars.n<90000){
+  const l=r()*360,lw=Math.min(l,360-l);
+  if(r()>.3+.7*Math.exp(-(lw*lw)/(2*60*60)))continue;
+  const b=r()<.6?Math.max(-70,Math.min(70,gs()*11)):Math.asin(2*r()-1)/D2R;
+  const m=3.4+Math.log10(1+r()*(Math.pow(10,.48*4)-1))/.48,u=r();
+  put(stars,l,b,Math.round(Math.max(28,Math.min(255,255*Math.pow(10,-.18*(m-3.4))))),u<.22?0:u<.52?1:u<.72?2:u<.9?3:4);
+ }
+ while(grain.n<120000){
+  const l=r()*360,lw=Math.min(l,360-l),b=gs()*(lw<50?6:4.5);
+  if(r()>.2+.8*Math.exp(-(lw*lw)/(2*50*50)))continue;
+  if(Math.abs(b)<2&&(l<80||l>290)&&r()<.7)continue;
+  if(r()>.55+.45*Math.sin(l*.37)*Math.sin(l*.11+b*.5))continue;
+  put(grain,l,b,10+Math.floor(r()*22),lw<45?0:1);
+ }
+ return{stars,grain};
+})();
+const GAL=(()=>{const a=[];for(let l=0;l<=360;l+=2){const eq=galToEq(l,0),lw=Math.min(l,360-l);a.push({ra:eq[0],dec:eq[1],w:.45+1.1*Math.exp(-(lw*lw)/(2*60*60)),warm:lw<45})}return a})();
+const DEEP=[['Andromeda Galaxy',10.685,41.269,1.5,3,'216,224,255'],['Large Magellanic Cloud',80.894,-69.756,4.2,1.3,'216,230,255'],['Small Magellanic Cloud',13.187,-72.829,2.2,1.4,'216,230,255'],['Orion Nebula',83.82,-5.39,.7,1,'255,158,192'],['Pleiades',56.75,24.117,1.3,1,'160,184,255'],['Beehive Cluster',130.1,19.67,.9,1,'255,236,200'],['Omega Centauri',201.7,-47.48,.6,1,'255,240,210'],['47 Tucanae',6.02,-72.08,.35,1,'255,240,210'],['Carina Nebula',161.3,-59.87,1.6,1.3,'255,150,170'],['Lagoon Nebula',270.9,-24.38,.7,1.3,'255,160,180'],['Hercules Cluster',250.42,36.46,.3,1,'255,240,210'],['Double Cluster',35,57.13,.6,1.4,'255,240,210'],['Hyades',66.75,15.87,3,1,'255,220,180'],['Eagle Nebula',274.7,-13.8,.5,1,'255,160,180'],['Butterfly Cluster',265.1,-32.2,.4,1,'200,215,255'],['Ptolemy Cluster',268.5,-34.8,.8,1,'255,240,210'],['Triangulum Galaxy',23.46,30.66,.8,1.6,'216,224,255'],['Centaurus A',201.37,-43.02,.5,1.4,'255,235,200'],['Tarantula Nebula',84.68,-69.1,.5,1,'255,150,170'],['Helix Nebula',337.4,-20.8,.4,1,'160,230,230']];
+let layer={cv:null,img:null,key:''};
+function buildLayer(S,pw,ph,dpr,pv,lite){
+ if(!layer.cv||layer.cv.width!==pw||layer.cv.height!==ph){layer.cv=document.createElement('canvas');layer.cv.width=pw;layer.cv.height=ph;layer.img=layer.cv.getContext('2d').createImageData(pw,ph)}
+ const d=layer.img.data;d.fill(0);
+ const th=S.lst*D2R,la=obs.lat*D2R,ct=Math.cos(th),st=Math.sin(th),cp=Math.cos(la),sp=Math.sin(la);
+ const ex=-st,ey=ct,nx=-sp*ct,ny=-sp*st,nz=cp,zx=cp*ct,zy=cp*st,zz=sp;
+ const plot=(sx,sy,rgb,a,add)=>{
+  const x=Math.round(sx*dpr),y=Math.round(sy*dpr);if(x<0||y<0||x>=pw||y>=ph)return;
+  const i=(y*pw+x)*4;
+  if(add){d[i]=rgb[0];d[i+1]=rgb[1];d[i+2]=rgb[2];d[i+3]=Math.min(255,d[i+3]+a)}
+  else if(a>d[i+3]){d[i]=rgb[0];d[i+1]=rgb[1];d[i+2]=rgb[2];d[i+3]=a}
+ };
+ const run=(o,pal,add,big,stride)=>{
+  const k=1/dpr;
+  for(let i=0;i<o.n;i+=stride){
+   const vx=o.x[i],vy=o.y[i],vz=o.z[i],xz=vx*zx+vy*zy+vz*zz;if(xz<0)continue;
+   const p=pv(vx*ex+vy*ey,vx*nx+vy*ny+vz*nz,xz);if(!p)continue;
+   const rgb=pal[o.c[i]],a=o.a[i]*(add?stride:1);plot(p[0],p[1],rgb,a,add);
+   if(big&&a>130){plot(p[0]+k,p[1],rgb,a*.5,false);plot(p[0]-k,p[1],rgb,a*.5,false);plot(p[0],p[1]+k,rgb,a*.5,false);plot(p[0],p[1]-k,rgb,a*.5,false)}
+  }
+ };
+ run(FS.grain,GT,true,false,lite?3:1);run(FS.stars,SC,false,true,lite?2:1);
+ layer.cv.getContext('2d').putImageData(layer.img,0,0);
+}
+
+/* ===== ephemeris ===== */
+const obs={lat:51.48,lon:0};
+function helio(el,T){
+ const[a,e,I,L,w,O]=[0,2,4,6,8,10].map(k=>el[k]+el[k+1]*T);
+ const M=norm(L-w)*D2R;let E=M+e*Math.sin(M);
+ for(let k=0;k<8;k++)E-=(E-e*Math.sin(E)-M)/(1-e*Math.cos(E));
+ const xp=a*(Math.cos(E)-e),yp=a*Math.sqrt(1-e*e)*Math.sin(E);
+ const om=w-O,co=cos(om),so=sin(om),cO=cos(O),sO=sin(O),ci=cos(I),si=sin(I);
+ return[(co*cO-so*sO*ci)*xp+(-so*cO-co*sO*ci)*yp,(co*sO+so*cO*ci)*xp+(-so*sO+co*cO*ci)*yp,so*si*xp+co*si*yp];
+}
+function moonPos(T){
+ const L=218.3164477+481267.88123421*T,D=297.8501921+445267.1114034*T,M=357.5291092+35999.0502909*T,Mp=134.9633964+477198.8675055*T,F=93.272095+483202.0175233*T;
+ const lon=norm(L+6.288774*sin(Mp)+1.274027*sin(2*D-Mp)+.658314*sin(2*D)+.213618*sin(2*Mp)-.185116*sin(M)-.114332*sin(2*F)+.058793*sin(2*D-2*Mp)+.057066*sin(2*D-M-Mp)+.053322*sin(2*D+Mp)+.045758*sin(2*D-M));
+ const lat=5.128122*sin(F)+.280602*sin(Mp+F)+.277693*sin(Mp-F)+.173237*sin(2*D-F);
+ const km=385000.56-20905.355*cos(Mp)-3699.111*cos(2*D-Mp)-2955.968*cos(2*D)-569.925*cos(2*Mp);
+ return[lon,lat,km/149597870.7];
+}
+const hor=(ra,dec,lst)=>{
+ const ha=norm(lst-ra+180)-180;
+ const alt=Math.asin(sin(dec)*sin(obs.lat)+cos(dec)*cos(obs.lat)*cos(ha))/D2R;
+ const az=norm(Math.atan2(sin(ha),cos(ha)*sin(obs.lat)-Math.tan(dec*D2R)*cos(obs.lat))/D2R+180);
+ return{ha,alt,az};
+};
+function state(t){
+ const J=jd(t),T=(J-2451545)/36525,pr=1.396971*T,eps=23.4392911-.0130042*T;
+ const lst=norm(280.46061837+360.98564736629*(J-2451545)+obs.lon);
+ const ear=helio(EL.earth,T),res=[];
+ const add=(lon,lat,dist,hx,hy)=>{
+  const cl=cos(lat),x=cl*cos(lon),y=cl*sin(lon),z=sin(lat);
+  const ye=y*cos(eps)-z*sin(eps),ze=y*sin(eps)+z*cos(eps);
+  const ra=norm(Math.atan2(ye,x)/D2R),dec=Math.asin(ze)/D2R;
+  res.push({lon,dist,ra,dec,hx,hy,...hor(ra,dec,lst)});
+ };
+ const ecl=g=>{const r=Math.hypot(g[0],g[1],g[2]);return[norm(Math.atan2(g[1],g[0])/D2R+pr),Math.asin(g[2]/r)/D2R,r]};
+ let e=ecl([-ear[0],-ear[1],-ear[2]]);add(e[0],e[1],e[2],0,0);
+ const m=moonPos(T);add(m[0],m[1],m[2],0,0);
+ for(const k of PL){const h=helio(EL[k],T);e=ecl([h[0]-ear[0],h[1]-ear[1],h[2]-ear[2]]);add(e[0],e[1],e[2],h[0],h[1])}
+ res.earth=ear;res.lst=lst;res.eps=eps;res.d=norm(res[1].lon-res[0].lon);res.illum=(1-cos(res.d))/2;
+ return res;
+}
+const phaseName=d=>d<22.5||d>=337.5?'New':d<67.5?'Waxing crescent':d<112.5?'First quarter':d<157.5?'Waxing gibbous':d<202.5?'Full':d<247.5?'Waning gibbous':d<292.5?'Last quarter':'Waning crescent';
+
+/* ===== schedule: rise, transit, set, twilight, aspects over 48 h ===== */
+let sched={ws:0,ev:[],samp:[]};
+const TARGETS=[0,60,90,120,180,240,270,300];
+function build(t){
+ const ws=t-6*HR,ev=[],samp=[];let P=null;
+ for(let k=0;k<=288;k++){
+  const t1=ws+k*STEP,S=state(t1);
+  samp.push({t:t1,alt:S.map(b=>b.alt)});
+  if(P){
+   const t0=t1-STEP,at=(a,b,v)=>t0+STEP*(v-a)/(b-a);
+   for(let i=0;i<9;i++){
+    const h0=i<2?-.833:-.57,a=P[i].alt-h0,b=S[i].alt-h0;
+    if(a<0&&b>=0)ev.push({t:at(a,b,0),type:'rise',i});
+    if(a>=0&&b<0)ev.push({t:at(a,b,0),type:'set',i});
+    if(P[i].ha<0&&S[i].ha>=0&&S[i].ha<90)ev.push({t:at(P[i].ha,S[i].ha,0),type:'transit',i});
+   }
+   for(const[h,n]of[[-6,'Civil twilight'],[-12,'Nautical twilight'],[-18,'Astronomical twilight']]){
+    const a=P[0].alt-h,b=S[0].alt-h;
+    if(a>=0&&b<0)ev.push({t:at(a,b,0),type:'tw',label:n+' ends'});
+    if(a<0&&b>=0)ev.push({t:at(a,b,0),type:'tw',label:n+' begins'});
+   }
+   for(let i=0;i<9;i++)for(let j=i+1;j<9;j++)for(const tg of TARGETS){
+    const e0=norm(P[i].lon-P[j].lon-tg+180)-180,e1=norm(S[i].lon-S[j].lon-tg+180)-180;
+    if(Math.abs(e0)<20&&Math.abs(e1)<20&&(e0<0)!==(e1<0))ev.push({t:at(e0,e1,0),type:'aspect',i,j,ang:tg>180?360-tg:tg});
+   }
+  }
+  P=S;
+ }
+ ev.sort((a,b)=>a.t-b.t);
+ return{ws,ev,samp};
+}
+function ensure(t){if(t<sched.ws+6*HR-1||t>sched.ws+30*HR)sched=build(t)}
+
+/* ===== state ===== */
+let timeTouched=false,T=Date.now(),base=T,playing=false,si=2,lastS=null,scr=[],hover=-1,trueScale=false,soundOn=false;
+let reveal=reduce?1:0;
+const rings=[],links=[];
+function fit(cv){
+ const dpr=devicePixelRatio||1,w=cv.clientWidth,h=cv.clientHeight;
+ if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr)}
+ const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,w,h);return{w,h,g};
+}
+const fmtT=ms=>new Date(ms).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+const nextEv=(type,i)=>{const e=sched.ev.find(q=>q.t>T&&q.t<=T+DAY&&q.type===type&&q.i===i);return e?fmtT(e.t):'-'};
+
+/* ===== audio ===== */
+let ac,master,dry,wet,conv,vol=.6,rng=mulberry(1);
+const logs=[];
+function startAudio(){
+ if(ac){ac.resume();return}
+ ac=new(window.AudioContext||window.webkitAudioContext)();
+ master=ac.createGain();master.gain.value=vol*.5;
+ const comp=ac.createDynamicsCompressor();comp.connect(master);master.connect(ac.destination);
+ dry=ac.createGain();dry.connect(comp);
+ conv=ac.createConvolver();const len=ac.sampleRate*3,buf=ac.createBuffer(2,len,ac.sampleRate);
+ for(let c=0;c<2;c++){const d=buf.getChannelData(c);for(let k=0;k<len;k++)d[k]=(Math.random()*2-1)*Math.pow(1-k/len,3)}
+ conv.buffer=buf;wet=ac.createGain();conv.connect(wet);wet.connect(comp);
+}
+function playNote(i,midi,v,pan){
+ if(!ac||!soundOn||ac.state!=='running')return;
+ const f=440*Math.pow(2,(midi-69)/12),t=ac.currentTime,out=ac.createGain(),dur=1.4+(8-i)*.25,np=3+i%3;
+ out.gain.setValueAtTime(0,t);out.gain.linearRampToValueAtTime(.16*v,t+.02+.01*i);out.gain.exponentialRampToValueAtTime(.0005,t+dur);
+ for(let k=1;k<=np;k++){
+  const o=ac.createOscillator(),g=ac.createGain();o.type=i%2?'triangle':'sine';o.frequency.value=f*k;
+  g.gain.value=1/Math.pow(k,1+.15*(i%4));o.connect(g);g.connect(out);o.start(t);o.stop(t+dur+.05);
+ }
+ const pn=ac.createStereoPanner?ac.createStereoPanner():null;
+ if(pn){pn.pan.value=pan||0;out.connect(pn);pn.connect(dry);pn.connect(conv)}else{out.connect(dry);out.connect(conv)}
+}
+function pitch(i,S){
+ const sc=SCALES[$('scale').value],n=sc.length,idx=Math.floor(S[i].lon/360*n*2);
+ return 48+(+$('root').value)+12*Math.floor(idx/n)+sc[idx%n]-(i>4?12:0);
+}
+function voice(i,S,v){
+ const m=pitch(i,S),pn=panFor(S[i]);playNote(i,m,v,pn);
+ if(rng()<.1+.5*S.illum){const g=m+2;setTimeout(()=>playNote(i,g,.5,pn),140+Math.floor(rng()*160))}
+}
+function trigger(e){
+ const S=state(e.t);
+ if(e.type==='transit'){rings.push({i:e.i,age:0});voice(e.i,S,1)}
+ else if(e.type==='aspect'){
+  links.push({i:e.i,j:e.j,age:0});
+  const a=pitch(e.i,S),b=pitch(e.j,S),pa=panFor(S[e.i]),pb=panFor(S[e.j]);playNote(e.i,a,.5,pa);playNote(e.j,b,.5,pb);playNote(e.i,Math.min(a,b)+(S.illum>.5?4:3),.35,(pa+pb)/2);
+ }
+}
+function fire(t0,t1){
+ if(t1-t0>6*HR||t1<=t0)return;
+ let n=0;for(const e of sched.ev){if((e.type==='transit'||e.type==='aspect')&&e.t>t0&&e.t<=t1){trigger(e);if(++n>12)break}}
+}
+const seedText=()=>hashStr(new Date(T).toISOString().slice(0,10)+obs.lat.toFixed(2)+obs.lon.toFixed(2)).toString(16);
+function resetRng(){rng=mulberry(hashStr(seedText()))}
+
+/* ===== drawing ===== */
+function drawMoon(g,x,y,r,d){
+ g.save();g.translate(x,y);
+ const wax=d<180,dd=wax?d:360-d;if(!wax)g.scale(-1,1);
+ g.fillStyle='#000';g.strokeStyle='rgba(255,255,255,.7)';g.beginPath();g.arc(0,0,r,0,7);g.fill();g.stroke();
+ const k=cos(dd);g.fillStyle='#fff';g.beginPath();g.arc(0,0,r,-Math.PI/2,Math.PI/2,false);
+ if(k>0)g.ellipse(0,0,k*r,r,0,Math.PI/2,-Math.PI/2,true);else g.ellipse(0,0,-k*r,r,0,Math.PI/2,Math.PI*1.5,false);
+ g.fill();g.restore();
+}
+/* ===== look up view ===== */
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+let look3d=false,yaw=180,tilt=35,fov=85,vYaw=0,vPitch=0,ptrCount=0;
+const panFor=b=>look3d?clamp((norm(b.az-yaw+180)-180)/70,-1,1):0;
+function drawSky(S,time,dt){
+ const sk=$('sky'),{w,h,g}=fit(sk);if(w<2)return;
+ const m3=look3d,dpr=devicePixelRatio||1;
+ if(reveal<1)reveal=Math.min(1,reveal+dt/2.6);
+ const vis=Math.max(0,(reveal-.2)/.8),ease=1-Math.pow(1-reveal,3);
+ if(m3&&!ptrCount){yaw=norm(yaw+vYaw*dt);tilt=clamp(tilt+vPitch*dt,-5,90);const k=Math.pow(.03,dt);vYaw*=k;vPitch*=k}
+ const R=Math.min(w,h)/2-22,cx=w/2,cy=h/2,fl=(h/2)/Math.tan(fov*D2R/2),zoom=m3?Math.sqrt(85/fov):1;
+ const cyw=cos(yaw),syw=sin(yaw),cpt=cos(tilt),spt=sin(tilt);
+ const P=(alt,az)=>{const r=R*Math.tan((90-alt)*D2R/2);return[cx-r*sin(az),cy-r*cos(az)]};
+ const P3=(alt,az)=>{const ca=cos(alt),x0=ca*sin(az),y0=sin(alt),z0=ca*cos(az),x=x0*cyw-z0*syw,z1=x0*syw+z0*cyw,y=y0*cpt-z1*spt,z=y0*spt+z1*cpt;return z<.05?null:[w/2+x*fl/z,h/2-y*fl/z]};
+ const proj=m3?P3:P;
+ const pv=m3?(xe,xn,xz)=>{const x=xe*cyw-xn*syw,z1=xe*syw+xn*cyw,y=xz*cpt-z1*spt,z=xz*spt+z1*cpt;return z<.05?null:[w/2+x*fl/z,h/2-y*fl/z]}:(xe,xn,xz)=>{const k=R/(1+xz);return[cx-xe*k,cy-xn*k]};
+ const sunAlt=S[0].alt,f=clamp((sunAlt+18)/18,0,1),tw=clamp((sunAlt+18)/26,0,1),day=clamp((sunAlt+3)/9,0,1);
+ const sa=(1-f*.97)*(1-.7*tw*(1-f)),a0=vis*sa*(S[1].alt>0?1-.6*S.illum:1);
+ const poly=pts=>{g.beginPath();let pen=false;for(const p of pts){if(!p){pen=false;continue}if(pen)g.lineTo(p[0],p[1]);else g.moveTo(p[0],p[1]);pen=true}g.stroke()};
+ const ring=alt=>{const pts=[];for(let a=0;a<=360;a+=3)pts.push(proj(alt,a));poly(pts)};
+ const wpx=m3?fl*.14:R*.07;
+ /* sky colour: blue by day, deep blue and orange at dusk */
+ const mixc=(x,y,t)=>x.map((v,i)=>Math.round(v+(y[i]-v)*t)).join(',');
+ const dusk=clamp((sunAlt+18)/12,0,1)*(1-day);
+ g.save();if(!m3){g.beginPath();g.arc(cx,cy,R,0,7);g.clip()}
+ if(dusk>0||day>0){
+  const top=mixc([6,12,40],[38,88,170],day),bot=mixc([30,40,100],[160,204,244],day),al=vis*Math.max(dusk*.8,day*.9);
+  const gr=m3?g.createLinearGradient(0,0,0,h):g.createRadialGradient(cx,cy,0,cx,cy,R);
+  gr.addColorStop(0,`rgba(${top},${al})`);gr.addColorStop(1,`rgba(${bot},${al})`);g.fillStyle=gr;g.fillRect(0,0,w,h);
+ }
+ const tt=clamp(1-Math.abs(sunAlt+4)/14,0,1),spt0=proj(0,S[0].az);
+ if(tt>0&&spt0){
+  const rr=m3?fl*1.2:R*1.25,gr=g.createRadialGradient(spt0[0],spt0[1],0,spt0[0],spt0[1],rr);
+  gr.addColorStop(0,`rgba(255,150,70,${.6*tt*vis})`);gr.addColorStop(.35,`rgba(214,88,120,${.35*tt*vis})`);gr.addColorStop(.75,`rgba(40,50,120,${.2*tt*vis})`);gr.addColorStop(1,'rgba(40,50,120,0)');
+  g.fillStyle=gr;g.fillRect(0,0,w,h);
+ }
+ g.restore();
+ /* frame, rings, labels */
+ g.lineWidth=1;g.strokeStyle='#fff';g.fillStyle='#fff';
+ if(!m3){
+  g.globalAlpha=.9;g.beginPath();g.arc(cx,cy,R,-Math.PI/2,-Math.PI/2+Math.PI*2*ease);g.stroke();
+  g.globalAlpha=vis;g.strokeStyle='rgba(255,255,255,.12)';
+  for(const a of[30,60]){g.beginPath();g.arc(cx,cy,R*Math.tan((90-a)*D2R/2),0,7);g.stroke()}
+  g.strokeStyle='rgba(255,255,255,.18)';g.beginPath();g.moveTo(cx,cy-R);g.lineTo(cx,cy+R);g.stroke();
+  g.strokeStyle='rgba(255,255,255,.7)';
+  for(let a=0;a<360;a+=10){const l=a%90===0?9:4;g.beginPath();g.moveTo(cx-R*sin(a),cy-R*cos(a));g.lineTo(cx-(R+l)*sin(a),cy-(R+l)*cos(a));g.stroke()}
+  g.fillStyle='#fff';g.font='11px Georgia';g.textAlign='center';g.textBaseline='middle';
+  [['N',0],['E',90],['S',180],['W',270]].forEach(([n,a])=>g.fillText(n,cx-(R+17)*sin(a),cy-(R+17)*cos(a)));
+ }else{
+  g.globalAlpha=vis*.07;
+  for(let a=0;a<360;a+=15){const pts=[];for(let al=0;al>=-60;al-=10)pts.push(P3(al,a));poly(pts)}
+  for(const al of[-10,-20,-35,-55])ring(al);
+  g.globalAlpha=vis*.14;ring(30);ring(60);
+  g.globalAlpha=vis*.2;{const pts=[];for(let al=0;al<=90;al+=3)pts.push(P3(al,0));for(let al=90;al>=0;al-=3)pts.push(P3(al,180));poly(pts)}
+  g.globalAlpha=vis*.9;ring(0);g.globalAlpha=vis*.6;
+  for(let a=0;a<360;a+=10){const p=P3(0,a),q=P3(a%90===0?3:1.5,a);if(p&&q){g.beginPath();g.moveTo(p[0],p[1]);g.lineTo(q[0],q[1]);g.stroke()}}
+  g.fillStyle='#fff';g.textAlign='center';g.textBaseline='middle';
+  [['N',0],['E',90],['S',180],['W',270]].forEach(([n,a])=>{const p=P3(5,a);if(p){g.globalAlpha=vis;g.font=`${14*zoom}px Georgia`;g.fillText(n,p[0],p[1])}});
+  [['NE',45],['SE',135],['SW',225],['NW',315]].forEach(([n,a])=>{const p=P3(4,a);if(p){g.globalAlpha=vis*.5;g.font=`${10*zoom}px Georgia`;g.fillText(n,p[0],p[1])}});
+  {const zp=P3(90,0);if(zp){g.globalAlpha=vis*.5;g.beginPath();g.moveTo(zp[0]-6,zp[1]);g.lineTo(zp[0]+6,zp[1]);g.moveTo(zp[0],zp[1]-6);g.lineTo(zp[0],zp[1]+6);g.stroke()}}
+ }
+ /* ecliptic */
+ g.setLineDash([2,5]);g.strokeStyle='rgba(255,224,160,.5)';g.globalAlpha=vis;
+ {const pts=[];for(let lon=0;lon<=360;lon+=2){const ex=cos(lon),ey=sin(lon)*cos(S.eps),ez=sin(lon)*sin(S.eps);const o=hor(norm(Math.atan2(ey,ex)/D2R),Math.asin(ez)/D2R,S.lst);pts.push(o.alt<0?null:proj(o.alt,o.az))}poly(pts)}
+ g.setLineDash([]);
+ /* tens of thousands of faint stars and the Milky Way grain, cached while the view is still */
+ if(a0>.02){
+  const moving=m3&&(ptrCount>0||Math.abs(vYaw)+Math.abs(vPitch)>2),lite=moving||(playing&&SPEEDS[si][1]>=3600),key=[lite?1:0,m3?1:0,sk.width,sk.height,S.lst.toFixed(playing&&SPEEDS[si][1]<=60?1:2),obs.lat.toFixed(3),yaw.toFixed(1),tilt.toFixed(1),fov.toFixed(1)].join();
+  if(key!==layer.key||!layer.cv){buildLayer(S,sk.width,sk.height,dpr,pv,lite);layer.key=key}
+  g.globalAlpha=a0;g.drawImage(layer.cv,0,0,w,h);
+  /* soft Milky Way glow, warm towards the centre */
+  g.save();g.lineCap='round';
+  const gp=GAL.map(q=>{const o=hor(q.ra,q.dec,S.lst);return o.alt<0?null:proj(o.alt,o.az)});
+  for(const[wd,al]of[[wpx*1.3,.02],[wpx*.7,.03],[wpx*.3,.045]]){
+   g.lineWidth=wd;
+   for(let i=0;i<gp.length-1;i++){
+    const p=gp[i],q=gp[i+1];if(!p||!q||Math.abs(p[0]-q[0])>wpx*5||Math.abs(p[1]-q[1])>wpx*5)continue;
+    g.strokeStyle=GAL[i].warm?'rgb(255,226,170)':'rgb(200,214,255)';g.globalAlpha=a0*al*GAL[i].w;g.beginPath();g.moveTo(p[0],p[1]);g.lineTo(q[0],q[1]);g.stroke();
+   }
+  }
+  g.restore();
+  /* clusters, nebulae and galaxies, tinted */
+  for(const[n,ra,dec,r,el,rgb]of DEEP){
+   const o=hor(ra,dec,S.lst);if(o.alt<1)continue;const c=proj(o.alt,o.az);if(!c)continue;
+   const rad=Math.max(4,r*(wpx/8)*1.4);
+   g.save();g.translate(c[0],c[1]);g.scale(el,1);
+   const gr=g.createRadialGradient(0,0,0,0,0,rad);gr.addColorStop(0,`rgba(${rgb},.6)`);gr.addColorStop(1,`rgba(${rgb},0)`);
+   g.globalAlpha=a0;g.fillStyle=gr;g.beginPath();g.arc(0,0,rad,0,7);g.fill();g.restore();
+   if(sa>.5&&r>=.55){g.globalAlpha=a0*.55;g.fillStyle='#fff';g.font='9px Georgia';g.textAlign='left';g.fillText(n.toUpperCase().split('').join(' '),c[0]+rad*el+5,c[1]+3)}
+  }
+ }
+ /* named stars with their real colours */
+ const pos=new Map();
+ for(const s of STARS){
+  const o=hor(s.ra,s.dec,S.lst);if(o.alt<0)continue;const p=proj(o.alt,o.az);if(!p)continue;pos.set(s,p);
+  if(p[0]<-30||p[0]>w+30||p[1]<-30||p[1]>h+30)continue;
+  const tf=reduce?1:.88+.12*Math.sin(time*2+s.ph),r=Math.max(.7,Math.min(3.2,.9+(2.4-s.mag)*.6))*zoom,col=starColor(s);
+  g.fillStyle=col;g.strokeStyle=col;
+  if(s.mag<2){g.globalAlpha=a0*.14;g.beginPath();g.arc(p[0],p[1],r*3.4,0,7);g.fill()}
+  g.globalAlpha=a0*tf;g.beginPath();g.arc(p[0],p[1],r,0,7);g.fill();
+  if(s.mag<.6){g.globalAlpha=a0*.35*tf;g.beginPath();g.moveTo(p[0]-r*5,p[1]);g.lineTo(p[0]+r*5,p[1]);g.moveTo(p[0],p[1]-r*5);g.lineTo(p[0],p[1]+r*5);g.stroke()}
+ }
+ g.strokeStyle='#9db4ff';g.fillStyle='#9db4ff';g.font=`${9*zoom}px Georgia`;g.textAlign='center';
+ for(const cs of CONS){
+  g.globalAlpha=a0*.3;let sx=0,sy=0,n=0;
+  for(const[p0,q0]of cs.lines){const p=pos.get(p0),q=pos.get(q0);if(p&&q){g.beginPath();g.moveTo(p[0],p[1]);g.lineTo(q[0],q[1]);g.stroke();sx+=p[0]+q[0];sy+=p[1]+q[1];n+=2}}
+  if(n>=2&&sa>.3){g.globalAlpha=a0*.5;g.fillText(cs.n.toUpperCase().split('').join(' '),sx/n,sy/n+14*zoom)}
+ }
+ /* sun, moon, planets in their natural colours */
+ g.globalAlpha=vis;scr=[];
+ for(let i=0;i<9;i++){
+  const b=S[i];if(b.alt<-.5)continue;const p=proj(Math.max(b.alt,0),b.az);if(!p)continue;
+  const x=p[0],y=p[1];scr.push({i,x,y});g.fillStyle=COL[i];g.strokeStyle=COL[i];
+  if(i===0){
+   g.globalAlpha=vis*.25;g.beginPath();g.arc(x,y,13*zoom,0,7);g.stroke();g.globalAlpha=vis*.5;
+   for(let k=0;k<16;k++){const a=k*Math.PI/8;g.beginPath();g.moveTo(x+Math.cos(a)*17*zoom,y+Math.sin(a)*17*zoom);g.lineTo(x+Math.cos(a)*(k%2?21:25)*zoom,y+Math.sin(a)*(k%2?21:25)*zoom);g.stroke()}
+   g.globalAlpha=vis;g.beginPath();g.arc(x,y,7*zoom,0,7);g.fill();
+  }else if(i===1)drawMoon(g,x,y,(m3?11:10)*zoom,S.d);
+  else{
+   g.beginPath();g.arc(x,y,(i===3||i===5?4:3.2)*zoom,0,7);g.fill();g.globalAlpha=vis*.35;g.beginPath();g.arc(x,y,7*zoom,0,7);g.stroke();g.globalAlpha=vis*.85;
+   g.fillStyle='#fff';g.font=`${10*zoom}px Georgia`;g.textAlign='left';g.fillText(NAMES[i].toUpperCase().split('').join(' '),x+12*zoom,y);g.globalAlpha=vis;
+  }
+  if(hover===i){g.strokeStyle='#fff';g.globalAlpha=.8;g.beginPath();g.arc(x,y,16*zoom,0,7);g.stroke();g.globalAlpha=vis}
+ }
+ const at=i=>scr.find(q=>q.i===i);
+ for(let k=rings.length-1;k>=0;k--){const r=rings[k];r.age+=dt;const q=r.age/2.2;if(q>=1){rings.splice(k,1);continue}
+  const q0=at(r.i);if(!q0)continue;g.strokeStyle=COL[r.i];g.globalAlpha=(1-q)*.9;g.beginPath();g.arc(q0.x,q0.y,6+(1-Math.pow(1-q,3))*(reduce?10:70)*zoom,0,7);g.stroke()}
+ g.strokeStyle='#fff';
+ for(let k=links.length-1;k>=0;k--){const l=links[k];l.age+=dt;const q=l.age/2.8;if(q>=1){links.splice(k,1);continue}
+  const p=at(l.i),r=at(l.j);if(!p||!r)continue;g.globalAlpha=(1-q)*.6;g.beginPath();g.moveTo(p.x,p.y);g.lineTo(r.x,r.y);g.stroke()}
+ g.globalAlpha=1;
+}
+function drawOrr(S){
+ const{w,h,g}=fit($('orr'));if(w<2)return;
+ const R=Math.min(w,h)/2-14,cx=w/2,cy=h/2;
+ const rad=r=>trueScale?R*r/31:R*Math.sqrt(r/31);
+ const pos=(x,y)=>{const r=Math.hypot(x,y)||1e-9,k=rad(r)/r;return[cx+x*k,cy-y*k]};
+ g.lineWidth=1;g.strokeStyle='rgba(255,255,255,.18)';
+ for(const a of A_RING){g.beginPath();g.arc(cx,cy,rad(a),0,7);g.stroke()}
+ g.fillStyle=COL[0];g.beginPath();g.arc(cx,cy,4,0,7);g.fill();
+ const e=pos(S.earth[0],S.earth[1]);
+ const pulse=i=>rings.some(r=>r.i===i&&r.age<1.4);
+ const dot=(x,y,i,label,hollow)=>{
+  if(pulse(i)){g.strokeStyle='#fff';g.beginPath();g.arc(x,y,10,0,7);g.stroke()}
+  const cc=hollow?'#8fb8ff':COL[i];g.strokeStyle=cc;g.fillStyle=cc;g.beginPath();g.arc(x,y,3,0,7);hollow?(g.fillStyle='#000',g.fill(),g.stroke()):g.fill();
+  g.fillStyle='rgba(255,255,255,.8)';g.font='9px Georgia';g.textAlign='left';g.fillText(label.toUpperCase().split('').join(' '),x+8,y-5);
+ };
+ dot(e[0],e[1],1,'Earth',true);
+ const sel=+$('osel').value||0;
+ for(let i=2;i<9;i++){const p=pos(S[i].hx,S[i].hy);S[i].px=p;dot(p[0],p[1],i,NAMES[i],false)}
+ const tgt=sel===0||!S[sel].px?[cx,cy]:S[sel].px;
+ g.strokeStyle='rgba(255,255,255,.6)';g.beginPath();g.moveTo(e[0],e[1]);g.lineTo(tgt[0],tgt[1]);g.stroke();
+ const a1=Math.atan2(cy-e[1],cx-e[0]),a2=Math.atan2(tgt[1]-e[1],tgt[0]-e[0]);
+ const dl=((a2-a1+Math.PI*3)%(Math.PI*2))-Math.PI;
+ g.beginPath();g.arc(e[0],e[1],22,a1,a1+dl,dl<0);g.stroke();
+ const ang=Math.abs(norm(S[sel].lon-S[0].lon+180)-180);
+ $('oinfo').textContent=sel===0?'':`Angle from the Sun: ${ang.toFixed(0)} degrees`;
+}
+function drawRoll(){
+ const{w,h,g}=fit($('roll'));if(w<2)return;
+ const t0=T-6*HR,span=24*HR,rh=h/9,X=t=>(t-t0)/span*w;
+ g.strokeStyle='rgba(255,255,255,.1)';g.lineWidth=1;
+ for(let i=0;i<9;i++){g.beginPath();g.moveTo(0,(i+.5)*rh);g.lineTo(w,(i+.5)*rh);g.stroke()}
+ g.font='9px Georgia';g.fillStyle='rgba(255,255,255,.5)';g.textAlign='left';g.textBaseline='middle';
+ NAMES.forEach((n,i)=>g.fillText(n,2,(i+.5)*rh-6));
+ g.fillStyle='#fff';
+ for(const e of sched.ev){
+  if(e.t<t0||e.t>t0+span)continue;
+  if(e.type==='transit'){g.beginPath();g.arc(X(e.t),(e.i+.5)*rh,2.5,0,7);g.fill()}
+  else if(e.type==='aspect'){g.globalAlpha=.2;g.fillRect(X(e.t),0,1,h);g.globalAlpha=1}
+ }
+ g.strokeStyle='#fff';g.beginPath();g.moveTo(X(T),0);g.lineTo(X(T),h);g.stroke();
+}
+function plan(S){
+ const t1=T+DAY,sm=sched.samp.filter(s=>s.t>=T&&s.t<=t1);
+ let rows='';
+ for(let i=0;i<9;i++){let mx=-99;sm.forEach(s=>{mx=Math.max(mx,s.alt[i])});
+  rows+=`<tr><td>${NAMES[i]}</td><td>${nextEv('rise',i)}</td><td>${nextEv('transit',i)}</td><td>${nextEv('set',i)}</td><td>${mx.toFixed(0)}&deg;</td></tr>`}
+ const tw=sched.ev.filter(e=>e.type==='tw'&&e.t>T&&e.t<=t1).map(e=>`${e.label} ${fmtT(e.t)}`).join('<br>');
+ $('plan').innerHTML=`<table class="mono"><tr><th></th><th>Rises</th><th>Transits</th><th>Sets</th><th>Peak</th></tr>${rows}</table><div class="dim" style="margin-top:10px">${tw||'No twilight changes in the next 24 hours.'}</div><div class="dim" style="margin-top:8px">The next 24 hours from the clock, in your device time zone.</div>`;
+}
+function setStatus(S){
+ if(!S)return;
+ if(hover>=0){const b=S[hover];
+  $('status').textContent=`${NAMES[hover]}   altitude ${b.alt.toFixed(1)}°   azimuth ${b.az.toFixed(1)}°   rises ${nextEv('rise',hover)}   transits ${nextEv('transit',hover)}   sets ${nextEv('set',hover)}`;return}
+ $('status').textContent=`${playing?'':'Paused    '}${phaseName(S.d)} moon, ${(S.illum*100).toFixed(0)}% lit    Sun altitude ${S[0].alt.toFixed(0)}°`;
+}
+
+/* ===== ui ===== */
+const loc=t=>new Date(t-new Date(t).getTimezoneOffset()*6e4).toISOString().slice(0,16);
+function save(){try{localStorage.setItem('orrery',JSON.stringify({lat:obs.lat,lon:obs.lon,scale:$('scale').value,root:$('root').value}))}catch(e){}}
+function goNight(){
+ const t0=Date.now();let best=t0,bestAlt=state(t0)[0].alt;
+ if(bestAlt>=-18)for(let k=1;k<=144;k++){const t=t0+k*600000,a=state(t)[0].alt;if(a<bestAlt){bestAlt=a;best=t}}
+ T=base=best;
+ if(best!==t0)$('msg').textContent='Starting at night. Press Now for the current time.';
+}
+function setObs(la,lo){
+ obs.lat=Math.max(-90,Math.min(90,la));obs.lon=Math.max(-180,Math.min(180,lo));
+ if(!timeTouched)goNight();
+ $('lat').value=obs.lat.toFixed(2);$('lon').value=obs.lon.toFixed(2);sched.ws=0;save();
+}
+function locate(){
+ if(!navigator.geolocation){$('msg').textContent='Location is not available. Enter it by hand.';return}
+ $('msg').textContent='Finding your location';
+ navigator.geolocation.getCurrentPosition(p=>{setObs(p.coords.latitude,p.coords.longitude);$('msg').textContent='Location set'},()=>{$('msg').textContent='Not allowed. Enter it by hand.'},{timeout:15000});
+}
+let lastUi=0;
+function ui(S){
+ if(document.activeElement!==$('dt'))$('dt').value=loc(T);
+ if(document.activeElement!==$('sc'))$('sc').value=Math.max(0,Math.min(1440,(T-base)/6e4));
+ $('seed').textContent=seedText();
+ if(wet)wet.gain.value=.15+.5*S.illum;
+ plan(S);setStatus(S);
+}
+function frame(ts){
+ const dt=Math.min(.1,(ts-(frame.l||ts))/1000);frame.l=ts;
+ ensure(T);
+ if(playing){const t0=T;T+=dt*SPEEDS[si][1]*1000;ensure(T);fire(t0,T)}
+ const S=state(T);lastS=S;
+ drawSky(S,ts/1000,dt);drawOrr(S);drawRoll();
+ if(ts-lastUi>500){ui(S);lastUi=ts}
+ requestAnimationFrame(frame);
+}
+function setPlay(p){playing=p;if(p)timeTouched=true;$('play').textContent=p?'Pause':'Play';$('play').classList.toggle('on',p);if(p)resetRng()}
+function init(){
+ let sv=null;try{sv=JSON.parse(localStorage.getItem('orrery')||'null')}catch(e){}
+ Object.keys(SCALES).forEach(n=>$('scale').add(new Option(n,n)));
+ ROOTS.forEach((n,k)=>$('root').add(new Option(n,k)));
+ if(sv&&SCALES[sv.scale])$('scale').value=sv.scale;
+ if(sv&&sv.root!==undefined)$('root').value=sv.root;
+ NAMES.forEach((n,i)=>{if(i!==1)$('osel').add(new Option(n,i))});
+ $('osel').value=5;
+ $('spd').textContent=SPEEDS[si][0];
+ if(sv&&isFinite(sv.lat)&&isFinite(sv.lon))setObs(sv.lat,sv.lon);else{setObs(0,0);$('msg').textContent='Showing the night sky from the equator. Press Use my location for yours.'}
+ $('play').onclick=()=>setPlay(!playing);
+ $('spd').onclick=()=>{si=(si+1)%SPEEDS.length;$('spd').textContent=SPEEDS[si][0]};
+ $('now').onclick=()=>{timeTouched=true;T=base=Date.now()};
+ $('night').onclick=()=>{goNight()};
+ $('dt').onchange=e=>{const v=new Date(e.target.value).getTime();if(isFinite(v)){timeTouched=true;T=v;base=v}};
+ $('sc').oninput=e=>{timeTouched=true;T=base+(+e.target.value)*6e4};
+ $('lat').onchange=()=>setObs(+$('lat').value||0,obs.lon);
+ $('lon').onchange=()=>setObs(obs.lat,+$('lon').value||0);
+ $('loc').onclick=locate;
+ $('scl').onclick=()=>{trueScale=!trueScale;$('scl').textContent=trueScale?'True scale':'Compressed scale'};
+ $('snd').onclick=()=>{
+  soundOn=!soundOn;$('snd').textContent=soundOn?'Sound on':'Sound off';$('snd').classList.toggle('on',soundOn);
+  if(soundOn){startAudio();if(master)master.gain.value=vol*.5}
+ };
+ $('scale').onchange=$('root').onchange=save;
+ $('sky').addEventListener('pointermove',e=>{
+  const r=$('sky').getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
+  let best=-1,bd=20;for(const s of scr){const d=Math.hypot(s.x-x,s.y-y);if(d<bd){bd=d;best=s.i}}
+  hover=best;setStatus(lastS);
+ });
+ $('sky').addEventListener('pointerleave',()=>{hover=-1;setStatus(lastS)});
+ const ptrs=new Map();let pinch=0;
+ $('sky').addEventListener('pointerdown',e=>{
+  if(!look3d)return;$('sky').setPointerCapture(e.pointerId);ptrs.set(e.pointerId,[e.clientX,e.clientY]);ptrCount=ptrs.size;vYaw=vPitch=0;
+  if(ptrs.size===2){const[a,b]=[...ptrs.values()];pinch=Math.hypot(a[0]-b[0],a[1]-b[1])}
+ });
+ $('sky').addEventListener('pointermove',e=>{
+  if(!look3d||!ptrs.has(e.pointerId))return;
+  const p=ptrs.get(e.pointerId),dx=e.clientX-p[0],dy=e.clientY-p[1];ptrs.set(e.pointerId,[e.clientX,e.clientY]);
+  if(ptrs.size===2){const[a,b]=[...ptrs.values()],d=Math.hypot(a[0]-b[0],a[1]-b[1]);if(pinch)fov=clamp(fov*pinch/d,25,110);pinch=d;return}
+  const k=fov/($('sky').clientHeight||600);
+  yaw=norm(yaw-dx*k);tilt=clamp(tilt+dy*k,-5,90);
+  vYaw=clamp(-dx*k*50,-240,240);vPitch=clamp(dy*k*50,-240,240);
+ });
+ const up=e=>{ptrs.delete(e.pointerId);ptrCount=ptrs.size;pinch=0};
+ ['pointerup','pointercancel'].forEach(n=>$('sky').addEventListener(n,up));
+ $('sky').addEventListener('wheel',e=>{if(!look3d)return;e.preventDefault();fov=clamp(fov*(1+e.deltaY*.001),25,110)},{passive:false});
+ $('view').onclick=()=>{
+  look3d=!look3d;$('view').textContent=look3d?'Dome view':'Look up';$('view').classList.toggle('on',look3d);
+  $('sky').parentElement.classList.toggle('wide',look3d);$('sky').style.touchAction=look3d?'none':'';
+  $('hint').textContent=look3d?'Drag to look around. Scroll or pinch to zoom. Sound moves left and right with the sky.':'';
+  if(look3d){yaw=obs.lat>=0?180:0;tilt=35;fov=85;vYaw=vPitch=0}
+ };
+ addEventListener('keydown',e=>{
+  const tag=document.activeElement.tagName;if(/INPUT|SELECT|TEXTAREA/.test(tag))return;
+  if(e.key===' '&&tag!=='BUTTON'){e.preventDefault();setPlay(!playing)}
+  else if(e.key==='ArrowRight'){timeTouched=true;T+=HR}else if(e.key==='ArrowLeft'){timeTouched=true;T-=HR}else if(e.key==='t'||e.key==='T'){timeTouched=true;T=base=Date.now()}
+ });
+ requestAnimationFrame(frame);
+}
+init();
+</script></body></html>
